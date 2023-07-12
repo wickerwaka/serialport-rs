@@ -22,7 +22,11 @@ use IOKit_sys::*;
 use crate::SerialPortType;
 #[cfg(any(
     target_os = "ios",
-    all(target_os = "linux", not(target_env = "musl"), any(feature = "libudev", feature = "uevent-info")),
+    all(
+        target_os = "linux",
+        not(target_env = "musl"),
+        any(feature = "libudev", feature = "uevent-info")
+    ),
     target_os = "macos"
 ))]
 use crate::UsbPortInfo;
@@ -245,8 +249,7 @@ fn port_type(service: io_object_t) -> SerialPortType {
     }
 }
 
-
-#[cfg(all(target_os = "linux", feature="uevent-info", not(feature="libudev")))]
+#[cfg(all(target_os = "linux", feature = "uevent-info", not(feature = "libudev")))]
 fn uevent_port_type(dev_path: &Path) -> Result<SerialPortType> {
     let mut path = dev_path.to_path_buf();
     path.push("device");
@@ -261,7 +264,13 @@ fn uevent_port_type(dev_path: &Path) -> Result<SerialPortType> {
                 .filter_map(|x| u16::from_str_radix(x, 16).ok())
                 .collect();
             if parts.len() == 3 {
-                return Ok(SerialPortType::UsbPort(UsbPortInfo { vid: parts[0], pid: parts[1], serial_number: None, manufacturer: None, product: None }));
+                return Ok(SerialPortType::UsbPort(UsbPortInfo {
+                    vid: parts[0],
+                    pid: parts[1],
+                    serial_number: None,
+                    manufacturer: None,
+                    product: None,
+                }));
             }
         }
     }
