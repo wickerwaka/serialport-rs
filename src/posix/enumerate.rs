@@ -22,7 +22,7 @@ use IOKit_sys::*;
 use crate::SerialPortType;
 #[cfg(any(
     target_os = "ios",
-    all(target_os = "linux", not(target_env = "musl"), feature = "libudev"),
+    all(target_os = "linux", not(target_env = "musl"), any(feature = "libudev", feature = "uevent-info")),
     target_os = "macos"
 ))]
 use crate::UsbPortInfo;
@@ -245,6 +245,29 @@ fn port_type(service: io_object_t) -> SerialPortType {
     }
 }
 
+
+#[cfg(all(target_os = "linux", feature="uevent-info", not(feature="libudev")))]
+fn uevent_port_type(dev_path: &Path) -> Result<SerialPortType> {
+    let mut path = dev_path.to_path_buf();
+    path.push("device");
+    path.push("uevent");
+
+    let mut s = String::new();
+    File::open(path)?.read_to_string(&mut s)?;
+    for line in s.lines() {
+        if let Some(("PRODUCT", value)) = line.split_once('=') {
+            let parts: Vec<u16> = value
+                .split('/')
+                .filter_map(|x| u16::from_str_radix(x, 16).ok())
+                .collect();
+            if parts.len() == 3 {
+                return Ok(SerialPortType::UsbPort(UsbPortInfo { vid: parts[0], pid: parts[1], serial_number: None, manufacturer: None, product: None }));
+            }
+        }
+    }
+    Ok(SerialPortType::Unknown)
+}
+
 cfg_if! {
     if #[cfg(any(target_os = "ios", target_os = "macos"))] {
         /// Scans the system for serial ports and returns a list of them.
@@ -458,9 +481,15 @@ cfg_if! {
                     }
                 }
 
+                let port_type = if cfg!(feature = "uevent-info") {
+                    uevent_port_type(&raw_path)?
+                } else {
+                    SerialPortType::Unknown
+                };
+
                 vec.push(SerialPortInfo {
                     port_name: raw_path.to_string_lossy().to_string(),
-                    port_type: SerialPortType::Unknown,
+                    port_type: port_type,
                 });
             }
             Ok(vec)
