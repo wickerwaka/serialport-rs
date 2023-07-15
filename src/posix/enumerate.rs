@@ -22,11 +22,8 @@ use IOKit_sys::*;
 use crate::SerialPortType;
 #[cfg(any(
     target_os = "ios",
-    all(
-        target_os = "linux",
-        not(target_env = "musl"),
-        any(feature = "libudev", feature = "uevent-info")
-    ),
+    all(target_os = "linux", not(target_env = "musl"), feature = "libudev"),
+    all(target_os = "linux", feature = "uevent-info"),
     target_os = "macos"
 ))]
 use crate::UsbPortInfo;
